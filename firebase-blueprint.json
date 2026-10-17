@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "Task": {
+      "title": "Task",
+      "description": "Represents a user task with scheduling, priority, and completion status.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user who owns this task." },
+        "title": { "type": "string", "description": "Title of the task." },
+        "description": { "type": "string", "description": "Detailed description of the task." },
+        "category": { "type": "string", "description": "Category name for organization." },
+        "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"], "description": "Priority level." },
+        "dueDateTime": { "type": "number", "description": "Due date and time in epoch milliseconds." },
+        "isCompleted": { "type": "boolean", "description": "Whether the task is marked as finished." },
+        "completedAt": { "type": "number", "description": "Completion timestamp in epoch milliseconds." },
+        "hasReminder": { "type": "boolean", "description": "Whether an alarm reminder is set." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp. Must submit FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp. Must submit FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "title", "category", "priority", "isCompleted", "hasReminder", "createdAt", "updatedAt"]
+    },
+    "DiaryEntry": {
+      "title": "DiaryEntry",
+      "description": "Personal note or diary record protected by password/PIN in the UI.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user who owns this note." },
+        "title": { "type": "string", "description": "Title of the diary entry." },
+        "content": { "type": "string", "description": "Content of the diary entry." },
+        "mood": { "type": "string", "description": "Selected mood for this journal entry." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp. Must submit FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp. Must submit FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "title", "content", "mood", "createdAt", "updatedAt"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User preferences including theme, font, overlay settings, and game exclusions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user." },
+        "themeMode": { "type": "string", "enum": ["SYSTEM", "LIGHT", "DARK"], "description": "Theme mode." },
+        "accentColor": { "type": "string", "description": "Theme accent color key." },
+        "fontSize": { "type": "string", "enum": ["SMALL", "MEDIUM", "LARGE"], "description": "App font size setting." },
+        "overlayEnabled": { "type": "boolean", "description": "Floating overlay state." },
+        "gameModeEnabled": { "type": "boolean", "description": "Game mode toggle to hide overlay when gaming." },
+        "excludedPackages": { "type": "array", "description": "Package names to suppress overlay over." },
+        "periodicReminderIntervalHours": { "type": "number", "description": "Interval in hours for reminder notifications." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp. Must submit FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "themeMode", "accentColor", "fontSize", "overlayEnabled", "gameModeEnabled", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "Collection of tasks owned by a user."
+    },
+    "/users/{userId}/diaries/{diaryId}": {
+      "schema": { "$ref": "#/entities/DiaryEntry" },
+      "description": "Collection of private journal entries owned by a user."
+    },
+    "/users/{userId}/settings/{settingsDocId}": {
+      "schema": { "$ref": "#/entities/UserSettings" },
+      "description": "User preferences and overlay settings."
+    }
+  }
+}

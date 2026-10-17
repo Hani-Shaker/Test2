@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global catch-all default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTask(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             (data.priority in ['LOW', 'MEDIUM', 'HIGH']) &&
+             (!('dueDateTime' in data) || data.dueDateTime == null || data.dueDateTime is number) &&
+             data.isCompleted is bool &&
+             (!('completedAt' in data) || data.completedAt == null || data.completedAt is number) &&
+             data.hasReminder is bool;
+    }
+
+    function isValidDiary(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 10000 &&
+             data.mood is string && data.mood.size() >= 1 && data.mood.size() <= 50;
+    }
+
+    function isValidSettings(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             (data.themeMode in ['SYSTEM', 'LIGHT', 'DARK']) &&
+             data.accentColor is string && data.accentColor.size() <= 20 &&
+             (data.fontSize in ['SMALL', 'MEDIUM', 'LARGE']) &&
+             data.overlayEnabled is bool &&
+             data.gameModeEnabled is bool &&
+             (!('excludedPackages' in data) || (data.excludedPackages is list && data.excludedPackages.size() <= 50 && (data.excludedPackages.size() == 0 || data.excludedPackages[0] is string))) &&
+             (!('periodicReminderIntervalHours' in data) || (data.periodicReminderIntervalHours is number && data.periodicReminderIntervalHours >= 1 && data.periodicReminderIntervalHours <= 48));
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+
+      match /tasks/{taskId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().userId == userId &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().keys().hasAll(['userId', 'title', 'category', 'priority', 'isCompleted', 'hasReminder', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'description', 'category', 'priority', 'dueDateTime', 'isCompleted', 'completedAt', 'hasReminder', 'createdAt', 'updatedAt']) &&
+                         isValidTask(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'category', 'priority', 'dueDateTime', 'isCompleted', 'completedAt', 'hasReminder', 'updatedAt']) &&
+                         isValidTask(incoming());
+
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /diaries/{diaryId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(diaryId) &&
+                         incoming().userId == userId &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().keys().hasAll(['userId', 'title', 'content', 'mood', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'content', 'mood', 'createdAt', 'updatedAt']) &&
+                         isValidDiary(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(diaryId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'mood', 'updatedAt']) &&
+                         isValidDiary(incoming());
+
+        allow delete: if isOwner(userId) && isValidId(diaryId);
+      }
+
+      match /settings/{settingsDocId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(settingsDocId) &&
+                         incoming().userId == userId &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().keys().hasAll(['userId', 'themeMode', 'accentColor', 'fontSize', 'overlayEnabled', 'gameModeEnabled', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'themeMode', 'accentColor', 'fontSize', 'overlayEnabled', 'gameModeEnabled', 'excludedPackages', 'periodicReminderIntervalHours', 'updatedAt']) &&
+                         isValidSettings(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(settingsDocId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['themeMode', 'accentColor', 'fontSize', 'overlayEnabled', 'gameModeEnabled', 'excludedPackages', 'periodicReminderIntervalHours', 'updatedAt']) &&
+                         isValidSettings(incoming());
+
+        allow delete: if isOwner(userId) && isValidId(settingsDocId);
+      }
+    }
+  }
+}
